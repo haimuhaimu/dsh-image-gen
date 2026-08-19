@@ -3,7 +3,12 @@
 DeepSeek Harness 图片生成插件：通过阿里云百炼（Qwen-Image）为 DSH agent 提供图片生成能力。
 
 为 agent 注册一个 `generate_image` 工具：给定文字描述，调用百炼文生图服务生成图片，
-并把图片作为**对话附件**返回——图片直接显示在对话流里，模型也能在后续步骤中查看。
+并把图片作为**对话附件**返回（模型可在后续步骤查看）。同时把图片写入 `~/.dsh/image-gen/`
+并**自动用系统看图器弹出**，保证"生成即看到"。
+
+> 关于"对话流内联缩略图"：DSH Web UI 目前只把**人手上传**的图片渲染成可点击缩略图，
+> 工具/插件返回的图片只显示为工具行文本（产品限制，非本插件问题）。
+> 因此本插件用"自动弹出看图器"作为最可靠的即时预览方式；配置 `autoOpen: false` 可关闭。
 
 > 起因：DSH 官方目前没有内置图片生成工具（"完全没办法生成图片"是现状）。
 > 本插件用百炼 CLI（`bl`）作为后端，是官方推荐的生态贡献方式（`dsh-plugin` topic）。
@@ -58,8 +63,11 @@ dsh plugin --profile <name> add ./image-gen
 - id: image-gen
   name: dsh-image-gen
   config:
-    blPath: ""   # bl CLI 路径；留空自动查找 PATH 与常见安装位置
+    blPath: ""      # bl CLI 路径；留空自动查找 PATH 与常见安装位置
+    autoOpen: true  # 生成后自动用系统看图器弹出（默认 true）
 ```
+
+生成的图片持久保存在 `~/.dsh/image-gen/`，可随时手动查看。
 
 ## 实现说明
 
