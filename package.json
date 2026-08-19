@@ -1,13 +1,10 @@
 {
   "name": "dsh-image-gen",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness plugin: generate images via Aliyun Bailian Qwen-Image (bl CLI). Adds a generate_image tool that returns images as conversation attachments.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness plugin: generate images via Aliyun Bailian Qwen-Image (bl CLI). Saves a conversation attachment, writes the file to ~/.dsh/image-gen/ and auto-opens it in the system viewer.",
   "type": "module",
   "main": "index.js",
   "files": ["index.js", "cordis.patch.yml"],
-  "scripts": {
-    "prepare": "echo 'No build needed for JS plugin'"
-  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-tools": "*"
