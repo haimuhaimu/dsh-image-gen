@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
-import { readFile, mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, mkdtemp, rm, copyFile, mkdir } from 'node:fs/promises'
+import { tmpdir, homedir, platform } from 'node:os'
 import { join, resolve, basename } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
@@ -8,9 +8,24 @@ export const name = 'image-gen'
 
 export const inject = ['tools', 'attachments']
 
+/** 生成图的持久保存目录（自动弹出与手动查看共用）。 */
+const OUTPUT_DIR = join(homedir(), '.dsh', 'image-gen')
+
+/** 用系统默认看图器打开图片（失败静默，不阻塞工具返回）。 */
+function openInViewer(filePath) {
+  const cmd = platform() === 'darwin' ? 'open' : platform() === 'win32' ? 'start' : 'xdg-open'
+  const args = platform() === 'win32' ? ['', filePath] : [filePath]
+  try {
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, shell: platform() === 'win32' })
+    child.on('error', () => {})
+    child.unref()
+  } catch { /* 打开失败不影响生成结果 */ }
+}
+
 /**
  * 配置项（cordis.patch.yml 的 config 块）：
  *   blPath: string   bl CLI 路径；留空按 PATH 查找（含常见安装位置回退）
+ *   autoOpen: bool   生成后是否自动用系统看图器弹出（默认 true）
  *   defaultModel / defaultSize / defaultWatermark: 可选默认值
  */
 const DEFAULT_BL_CANDIDATES = [
@@ -109,12 +124,13 @@ function mediaTypeOf(filename) {
 
 export function apply(ctx, config = {}) {
   const blPath = resolveBlPath(config.blPath || process.env.BL_PATH)
+  const autoOpen = config.autoOpen !== false
 
   ctx.tools.register(defineTool({
     name: 'generate_image',
     description:
       'Generate an image from a detailed text prompt using Aliyun Bailian Qwen-Image (via the bl CLI). ' +
-      'The generated image is saved as a conversation attachment and shown in the chat. ' +
+      'The image is saved as a conversation attachment AND written to ~/.dsh/image-gen/, then auto-opened in the system image viewer so it is visible immediately. ' +
       'Write detailed prompts: subject, style, composition, lighting, mood.',
     parameters: {
       prompt: {
@@ -208,14 +224,22 @@ export function apply(ctx, config = {}) {
           mediaType,
           name: basename(filePath),
         })
+        // 持久化到固定目录并自动弹出看图器，保证"生成即看到"。
+        let persistentPath = basename(filePath)
+        try {
+          await mkdir(OUTPUT_DIR, { recursive: true })
+          persistentPath = join(OUTPUT_DIR, basename(filePath))
+          await copyFile(filePath, persistentPath)
+          if (autoOpen) openInViewer(persistentPath)
+        } catch { /* 持久化/打开失败不影响附件结果 */ }
         exec.agent?.inject({
           content: [{
             type: 'text',
-            text: `已通过 bl CLI（${args.model || 'qwen-image-3.0'}）生成图片并保存为附件。`,
+            text: `已通过 bl CLI（${args.model || 'qwen-image-3.0'}）生成图片，保存为附件并写入 ${persistentPath}。`,
           }],
           source: { kind: 'plugin', plugin: 'image-gen' },
         })
-        return { ref, file: basename(filePath) }
+        return { ref, file: persistentPath }
       } finally {
         await rm(workDir, { recursive: true, force: true }).catch(() => {})
       }
