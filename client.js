@@ -5,7 +5,9 @@
 // matches `tool/result` events carrying image attachments, then register a
 // 'conversation.chat.node' renderer for that node kind. The renderer receives the
 // conversation owner props (including `loadImage`), so it can load durable image
-// bytes and hand them to the official ImageGallery (thumbnail + click-to-lightbox).
+// bytes and draw thumbnails. If the official ImageGallery is requirable we use it
+// (thumbnail + lightbox); otherwise we fall back to a self-drawn inline thumbnail
+// that opens the original on click, so the feature never silently no-ops.
 window.__ModuleLoader__.load({
   id: 'dsh-image-gen',
   factory: (require) => {
@@ -13,10 +15,12 @@ window.__ModuleLoader__.load({
     var exports = module.exports
     var React = require('react')
     var h = React.createElement
-    var uiAttachment = require('@deepseek-ai/dsh-client-ui-attachment')
-    var ImageGallery = uiAttachment.ImageGallery
 
-    // Minimal locale strings for the gallery / lightbox (product copy: Chinese).
+    // Optional: the official gallery. Some builds don't hand it to third-party
+    // plugins; absence must not break us.
+    var UI = null
+    try { UI = require('@deepseek-ai/dsh-client-ui-attachment') } catch (e) { UI = null }
+
     var LABELS = {
       image: '图片',
       open: '查看原图',
@@ -26,7 +30,6 @@ window.__ModuleLoader__.load({
       lightbox: { dialog: '图片预览', close: '关闭' },
     }
 
-    // Extract durable image attachment refs from one tool/result event, if any.
     function attachmentsOf(event) {
       if (!event || event.type !== 'tool/result') return []
       var message = event.data && event.data.message
@@ -70,13 +73,50 @@ window.__ModuleLoader__.load({
       },
     }
 
-    // Inline thumbnail gallery for one tool-result image node.
+    // Self-drawn thumbnail: loads its own src via props.loadImage, opens the
+    // original in a new tab on click. Used when ImageGallery is unavailable.
+    function FallbackThumb(props) {
+      var attachment = props.attachment
+      var load = props.load
+      var st = React.useState(null)
+      var src = st[0]; var setSrc = st[1]
+      var err = React.useState(false)
+      var failed = err[0]; var setFailed = err[1]
+      React.useEffect(function () {
+        var alive = true
+        if (typeof load !== 'function') return
+        load(attachment).then(function (url) { if (alive) setSrc(url) })
+          .catch(function () { if (alive) setFailed(true) })
+        return function () { alive = false }
+      }, [attachment, load])
+      if (failed) return null
+      if (src === null) {
+        return h('span', { style: { display: 'inline-block', width: 96, height: 96, borderRadius: 8, background: 'rgba(127,127,127,.15)' } })
+      }
+      return h('img', {
+        src: src,
+        alt: attachment.name || 'image',
+        title: '查看原图',
+        onClick: function () { try { window.open(src, '_blank') } catch (e) {} },
+        style: {
+          width: 'auto', height: 'auto', maxWidth: 240, maxHeight: 240,
+          borderRadius: 8, cursor: 'zoom-in', display: 'block', objectFit: 'contain',
+        },
+      })
+    }
+
     function ImageThumbNode(props) {
       var node = props.node
       var attachments = (node && node.data && node.data.attachments) || []
       var load = props.loadImage
       if (attachments.length === 0 || typeof load !== 'function') return null
-      return h(ImageGallery, { images: attachments, load: load, align: 'start', labels: LABELS })
+      if (UI && UI.ImageGallery) {
+        return h(UI.ImageGallery, { images: attachments, load: load, align: 'start', labels: LABELS })
+      }
+      return h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', padding: '4px 0' } },
+        attachments.map(function (a, i) {
+          return h(FallbackThumb, { key: (a.attachment.attachmentId || i) + ':' + i, attachment: a.attachment, load: load })
+        }))
     }
 
     function apply(ctx) {
