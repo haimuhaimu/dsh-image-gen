@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { platform, tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 import test from 'node:test';
 
 let resolveBlPath;
@@ -27,13 +27,14 @@ test('finds bl in PATH before using a home-directory fallback', async t => {
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = join(root, 'first');
   const second = join(root, 'second');
-  const executable = join(second, 'bl');
+  const platformName = platform();
+  const executable = join(second, platformName === 'win32' ? 'bl.cmd' : 'bl');
   await mkdir(first);
   await mkdir(second);
   await writeFile(executable, '');
 
   assert.equal(
-    resolveBlPath('', { env: { PATH: `${first}:${second}` }, home: root, platformName: 'linux' }),
+    resolveBlPath('', { env: { PATH: [first, second].join(delimiter) }, home: root, platformName }),
     executable
   );
 });
