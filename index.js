@@ -3,6 +3,7 @@ import { readFile, mkdtemp, rm, copyFile, mkdir } from 'node:fs/promises'
 import { tmpdir, homedir, platform } from 'node:os'
 import { join, resolve, basename } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { resolveBlPath } from './bl-path.js'
 
 export const name = 'image-gen'
 
@@ -28,37 +29,6 @@ function openInViewer(filePath) {
  *   autoOpen: bool   生成后是否自动用系统看图器弹出（默认 true）
  *   defaultModel / defaultSize / defaultWatermark: 可选默认值
  */
-const DEFAULT_BL_CANDIDATES = [
-  'bl',
-  '/Users/bytedance/.npm-global/bin/bl',
-  '/usr/local/bin/bl',
-  '/opt/homebrew/bin/bl',
-]
-
-/** 解析 bl CLI 路径：配置优先，其次 PATH，最后常见安装位置。 */
-function resolveBlPath(configured) {
-  if (configured && configured !== 'bl') return configured
-  // PATH 里有没有 bl
-  const pathDirs = (process.env.PATH || '').split(':').filter(Boolean)
-  const hit = pathDirs.map((dir) => join(dir, 'bl')).find((p) => {
-    try {
-      // 轻量检查可执行文件存在（不跟随 symlink 语义的近似）
-      return require('node:fs').existsSync(p)
-    } catch {
-      return false
-    }
-  })
-  if (hit) return hit
-  const fallback = DEFAULT_BL_CANDIDATES.slice(1).find((p) => {
-    try {
-      return require('node:fs').existsSync(p)
-    } catch {
-      return false
-    }
-  })
-  return fallback || 'bl'
-}
-
 /** 运行 bl CLI，收集 stdout/stderr；非零退出抛错。 */
 function runBl(blPath, args, { signal, timeoutMs = 600000 }) {
   return new Promise((resolveRun, reject) => {

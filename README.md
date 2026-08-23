@@ -77,6 +77,15 @@ dsh plugin --profile <name> add ./image-gen
 - 执行：spawn `bl image generate --output json`，解析 `saved` 路径，读回字节存为附件
 - 取消/超时：监听 `exec.signal` 与 10 分钟超时
 
+## 验证
+
+```sh
+npm test
+npm pack --dry-run
+```
+
+路径解析测试覆盖 macOS/Linux 的 `PATH` 与用户级 npm 目录，以及 Windows 的分号 `PATH`、`bl.cmd` 和 `%APPDATA%\\npm` 回退。
+
 ## 参考
 
 - [官方第一个插件教程](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cordis-tutorial/01-first-plugin.zh.md)
