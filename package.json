@@ -10,7 +10,10 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml"],
+  "files": ["index.js", "bl-path.js", "client.js", "cordis.patch.yml"],
+  "scripts": {
+    "test": "node --test"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-tools": "*"
