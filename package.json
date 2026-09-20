@@ -14,9 +14,6 @@
   "scripts": {
     "test": "node --test"
   },
-  "dependencies": {
-    "cross-spawn": "7.0.6"
-  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-tools": "*"

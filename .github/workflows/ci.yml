@@ -30,9 +30,6 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install locked runtime dependencies
-        run: npm ci --ignore-scripts --legacy-peer-deps
-
       - name: Run tests
         run: npm test
 

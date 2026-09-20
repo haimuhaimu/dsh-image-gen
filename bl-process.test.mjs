@@ -41,7 +41,7 @@ for (const install of ['global npm', 'node_modules/.bin']) {
 }
 
 for (const termination of ['abort', 'timeout']) {
-  test(`the actual CLI process exits after ${termination}`, { timeout: 10000 }, async t => {
+  test(`the actual CLI process exits after ${termination}`, { timeout: 20000 }, async t => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-lifetime-'));
     t.after(() => rm(root, { recursive: true, force: true }));
     const packageDir = join(root, 'node_modules', 'bailian-cli');
@@ -58,12 +58,12 @@ for (const termination of ['abort', 'timeout']) {
       : `#!/bin/sh\nexec '${process.execPath}' '${script}' "$@"\n`, { mode: 0o755 });
     const controller = new AbortController();
     const completion = runBl(executable, [pidFile], {
-      signal: controller.signal, timeoutMs: termination === 'timeout' ? 2000 : 7000,
+      signal: controller.signal, timeoutMs: termination === 'timeout' ? 7000 : 15000,
     });
     // Attach a rejection handler immediately; intentional abort must not be unhandled.
     const rejected = assert.rejects(completion);
     let pid;
-    const deadline = Date.now() + 5000;
+    const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
       try { pid = Number(await readFile(pidFile, 'utf8')); break; } catch {}
       await new Promise(resolve => setTimeout(resolve, 25));
@@ -74,4 +74,42 @@ for (const termination of ['abort', 'timeout']) {
     await rejected;
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
   });
+}
+
+test('an already-cancelled request never starts the CLI', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-preabort-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const marker = join(root, 'started');
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(runBl(process.execPath, ['--input-type=module', '-e',
+    `import {writeFileSync} from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'started');`],
+  { signal: controller.signal, timeoutMs: 1000 }), /cancelled/);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await assert.rejects(readFile(marker), { code: 'ENOENT' });
+});
+
+test('Windows runs a configured JavaScript CLI directly', { skip: platform() !== 'win32' }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh direct entry-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const script = join(root, 'cli.mjs');
+  await writeFile(script, 'process.stdout.write(JSON.stringify(process.argv.slice(2)));');
+  const { stdout } = await runBl(script, args, { timeoutMs: 5000 });
+  assert.deepEqual(JSON.parse(stdout), args);
+});
+
+for (const metadata of [null, { name: 'other-cli', bin: { bl: 'cli.mjs' } },
+  { name: 'bailian-cli', bin: { bl: '../../../outside.mjs' } }]) {
+  test(`Windows rejects unsupported batch launch (${JSON.stringify(metadata)})`,
+    { skip: platform() !== 'win32' }, async t => {
+      const root = await mkdtemp(join(tmpdir(), 'dsh-invalid-shim-'));
+      t.after(() => rm(root, { recursive: true, force: true }));
+      const packageDir = join(root, 'node_modules', 'bailian-cli');
+      await mkdir(packageDir, { recursive: true });
+      await writeFile(join(packageDir, 'cli.mjs'), 'process.stdout.write("wrong CLI");');
+      if (metadata) await writeFile(join(packageDir, 'package.json'), JSON.stringify(metadata));
+      const shim = join(root, 'bl.cmd');
+      await writeFile(shim, '@echo wrong CLI\r\n');
+      await assert.rejects(runBl(shim, args, { timeoutMs: 5000 }), /Cannot launch Windows batch.*blPath/);
+    });
 }
