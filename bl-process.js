@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import spawn from 'cross-spawn'
 
 /** Run the CLI with bounded lifetime and collected output. */
 export function runBl(blPath, args, { signal, timeoutMs = 600000 }) {

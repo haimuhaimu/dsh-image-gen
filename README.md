@@ -80,11 +80,16 @@ dsh plugin --profile <name> add ./image-gen
 ## 验证
 
 ```sh
+npm ci --ignore-scripts --legacy-peer-deps
 npm test
 npm pack --dry-run
 ```
 
-路径解析测试覆盖 macOS/Linux 的 `PATH` 与用户级 npm 目录，以及 Windows 的分号 `PATH`、`bl.cmd` 和 `%APPDATA%\\npm` 回退。
+CI 使用 Node.js 24，分别在 macOS、Linux 和 Windows 上运行。宿主提供的 peer dependencies 不参与这组独立 CLI 测试。
+
+路径解析测试覆盖 `PATH` 与用户级 npm 目录、同名目录/不可执行文件的跳过，以及可执行符号链接。启动测试会运行本地假 CLI，检查含空格的安装路径，以及提示词中的引号、中文和 shell 特殊字符是否原样传递；Windows 同时覆盖全局 npm 和 `node_modules/.bin` 命令 shim。
+
+这些测试不会调用付费出图服务，也不等同于 DSH 宿主中的完整图片生成验收。
 
 ## 参考
 

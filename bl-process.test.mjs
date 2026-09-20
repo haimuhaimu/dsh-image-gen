@@ -9,7 +9,8 @@ import { runBl } from './bl-process.js';
 // These values must reach the CLI as literal arguments, not shell syntax.
 const args = ['image', 'generate', '--prompt',
   'a "red cat" & blue dog | (城市) <night> ^light',
-  '--negative-prompt', 'no blur; no $substitution', '--seed', '0'];
+  '--negative-prompt', 'no blur; no $substitution; literal %COMSPEC% !TEXT!',
+  '--size', '1024*1024', '--seed', '0'];
 
 for (const install of ['global npm', 'node_modules/.bin']) {
   test(`executes the resolved ${install} CLI and preserves prompt arguments`, async t => {
