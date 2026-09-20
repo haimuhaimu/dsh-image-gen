@@ -10,7 +10,7 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
-  "files": ["index.js", "bl-path.js", "client.js", "cordis.patch.yml"],
+  "files": ["index.js", "bl-path.js", "bl-process.js", "client.js", "cordis.patch.yml"],
   "scripts": {
     "test": "node --test"
   },
