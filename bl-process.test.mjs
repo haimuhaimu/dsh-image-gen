@@ -99,7 +99,7 @@ test('Windows runs a configured JavaScript CLI directly', { skip: platform() !==
 });
 
 for (const metadata of [null, { name: 'other-cli', bin: { bl: 'cli.mjs' } },
-  { name: 'bailian-cli', bin: { bl: '../../../outside.mjs' } }]) {
+  { name: 'bailian-cli', bin: { bl: '../../outside.mjs' } }]) {
   test(`Windows rejects unsupported batch launch (${JSON.stringify(metadata)})`,
     { skip: platform() !== 'win32' }, async t => {
       const root = await mkdtemp(join(tmpdir(), 'dsh-invalid-shim-'));
@@ -107,6 +107,8 @@ for (const metadata of [null, { name: 'other-cli', bin: { bl: 'cli.mjs' } },
       const packageDir = join(root, 'node_modules', 'bailian-cli');
       await mkdir(packageDir, { recursive: true });
       await writeFile(join(packageDir, 'cli.mjs'), 'process.stdout.write("wrong CLI");');
+      // A real outside file proves containment is checked, not just existence.
+      await writeFile(join(root, 'outside.mjs'), 'process.stdout.write("outside package");');
       if (metadata) await writeFile(join(packageDir, 'package.json'), JSON.stringify(metadata));
       const shim = join(root, 'bl.cmd');
       await writeFile(shim, '@echo wrong CLI\r\n');
